@@ -1,15 +1,15 @@
 """
 Package Import
 """
-import yfinance as yf
+import yfinance as yf            #新裝
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import quantstats as qs
-import gurobipy as gp
-import argparse
-import warnings
-
+import quantstats as qs             #新裝
+import gurobipy as gp               #新裝
+import argparse                     #新裝
+import warnings                     #新裝
+#新裝 IPython
 """
 Project Setup
 """
@@ -66,7 +66,9 @@ class EqualWeightPortfolio:
         """
         TODO: Complete Task 1 Below
         """
-
+        num_assets = len(assets)  # 計算需要均分的資產數量
+        # 對於所有資產均分權重，填入對應的 DataFrame 中
+        self.portfolio_weights[assets] = 1.0 / num_assets
         """
         TODO: Complete Task 1 Above
         """
@@ -117,7 +119,22 @@ class RiskParityPortfolio:
         """
         TODO: Complete Task 2 Below
         """
+        # 從 lookback 後的日期開始迭代
+        for i in range(self.lookback + 1, len(df)):
+            # 選取 lookback 期間內的回報率
+            R_n = df_returns.copy()[assets].iloc[i - self.lookback : i]
 
+            # 計算每個資產的波動性（標準差）
+            volatilities = R_n.std()
+
+            # 計算每個資產的逆波動性
+            inverse_vols = 1 / volatilities
+
+            # 計算權重
+            weights = inverse_vols / inverse_vols.sum()
+
+            # 將計算得到的權重賦值給對應日期的 portfolio_weights DataFrame
+            self.portfolio_weights.loc[df.index[i], assets] = weights
         """
         TODO: Complete Task 2 Above
         """
@@ -192,8 +209,16 @@ class MeanVariancePortfolio:
 
                 # Sample Code: Initialize Decision w and the Objective
                 # NOTE: You can modify the following code
-                w = model.addMVar(n, name="w", ub=1)
-                model.setObjective(w.sum(), gp.GRB.MAXIMIZE)
+                w = model.addMVar(n, lb=0, name="w")
+
+                # 定義目標函數
+                portfolio_return = w @ mu
+                portfolio_variance = w @ Sigma @ w
+                objective = portfolio_return - (self.gamma / 2) * portfolio_variance
+                model.setObjective(objective, gp.GRB.MAXIMIZE)
+
+                # 添加權重和為 1 的約束
+                model.addConstr(w.sum() == 1, "budget")
 
                 """
                 TODO: Complete Task 3 Below
@@ -214,11 +239,7 @@ class MeanVariancePortfolio:
 
                 if model.status == gp.GRB.OPTIMAL or model.status == gp.GRB.SUBOPTIMAL:
                     # Extract the solution
-                    solution = []
-                    for i in range(n):
-                        var = model.getVarByName(f"w[{i}]")
-                        # print(f"w {i} = {var.X}")
-                        solution.append(var.X)
+                    solution = w.x
 
         return solution
 

@@ -74,6 +74,25 @@ class MyPortfolio:
         """
         TODO: Complete Task 4 Below
         """
+        cov = self.returns[assets].cov()
+        m = gp.Model("portfolio_optimization")
+        
+        weights = m.addVars(assets, lb=0, ub=1, name="weights")
+        
+        mr = np.array([self.returns[i].mean() for i in assets])
+        k = np.array(self.returns[assets].std())
+
+        m.setObjective(
+            sum(weights[i] * mr[j] for j, i in enumerate(assets)) / k.mean(),
+            sense=gp.GRB.MAXIMIZE
+        )
+        
+        m.addConstr(sum(weights[i] for i in assets) == 1, "budget")
+
+        m.optimize()
+
+        for asset in assets:
+            self.portfolio_weights[asset] = weights[asset].x
 
         """
         TODO: Complete Task 4 Above
@@ -81,6 +100,7 @@ class MyPortfolio:
 
         self.portfolio_weights.ffill(inplace=True)
         self.portfolio_weights.fillna(0, inplace=True)
+
 
     def calculate_portfolio_returns(self):
         # Ensure weights are calculated
